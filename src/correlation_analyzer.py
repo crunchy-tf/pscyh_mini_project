@@ -4,9 +4,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import spearmanr
 from src import config
+# Import the specific table generators
 from src.table_generator import save_correlation_matrix_table_image, save_single_correlation_table_image
+# We can actually reuse save_correlation_matrix_table_image for the 2x2 matrices
+# by passing the 2x2 df and a specific suffix.
+# Let's rename save_single_correlation_table_image to be more generic or remove if not needed.
+# For clarity, let's ensure save_correlation_matrix_table_image handles small matrices well.
 
-def calculate_spearman_correlation_pair(df: pd.DataFrame, col1: str, col2: str) -> tuple:
+def calculate_spearman_correlation_pair_values(df: pd.DataFrame, col1: str, col2: str) -> tuple: # Renamed for clarity
+    """Calculates Spearman rho, p-value, and N for a single pair of columns."""
     if col1 not in df.columns or col2 not in df.columns:
         print(f"Warning: Columns for correlation ('{col1}', '{col2}') not found."); return np.nan, np.nan, 0
     s1 = pd.to_numeric(df[col1], errors='coerce'); s2 = pd.to_numeric(df[col2], errors='coerce')
@@ -16,6 +22,7 @@ def calculate_spearman_correlation_pair(df: pd.DataFrame, col1: str, col2: str) 
     rho, p = spearmanr(s1[valid], s2[valid]); return rho, p, num_pairs
 
 def plot_scatter(df: pd.DataFrame, col1: str, col2: str, rho: float, p_value: float, output_file: config.Path):
+    # ... (This function remains unchanged from the previous version)
     if col1 not in df.columns or col2 not in df.columns:
         print(f"Skipping scatter: Columns ('{col1}', '{col2}') not found."); return
     s1 = pd.to_numeric(df[col1], errors='coerce'); s2 = pd.to_numeric(df[col2], errors='coerce')
@@ -30,7 +37,10 @@ def plot_scatter(df: pd.DataFrame, col1: str, col2: str, rho: float, p_value: fl
     except Exception as e: print(f"Error saving scatter {output_file}: {e}")
     plt.close()
 
+
 def generate_correlation_matrix_and_images(df: pd.DataFrame, cols: list, csv_path: config.Path, heatmap_path: config.Path, suffix: str):
+    # ... (This function remains unchanged from the previous version,
+    # it already calls save_correlation_matrix_table_image from table_generator.py)
     valid_cols = [c for c in cols if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
     if len(valid_cols) < 2: print(f"Not enough numeric columns for corr matrix ('{suffix}')."); return None
     matrix = df[valid_cols].corr(method='spearman')
@@ -44,41 +54,103 @@ def generate_correlation_matrix_and_images(df: pd.DataFrame, cols: list, csv_pat
     try: plt.savefig(heatmap_path); print(f"Corr heatmap ({suffix}) saved: {heatmap_path}")
     except Exception as e: print(f"Error saving heatmap {heatmap_path}: {e}")
     plt.close()
-    save_correlation_matrix_table_image(matrix, filename_suffix=suffix) # Call to updated table generator
+    save_correlation_matrix_table_image(matrix, filename_suffix=suffix)
     return matrix
 
-def perform_correlation_analysis(df: pd.DataFrame, pairs_cfg: list, matrix_cols: list, ders_cols: list, report_path: config.Path, viz_dir: config.Path):
+
+def perform_correlation_analysis(df: pd.DataFrame,
+                                 correlation_pairs_config: list,
+                                 matrix_columns: list, # For the full matrix
+                                 ders_subscale_cols: list,
+                                 report_file: config.Path,
+                                 viz_dir: config.Path):
     print("\n--- Performing Correlation Analysis ---")
-    report = "Spearman Correlation Analysis Results:\n\nPair-wise Correlations:\n"
-    for c1, c2 in pairs_cfg:
-        rho, p, n = calculate_spearman_correlation_pair(df, c1, c2)
-        if not (np.isnan(rho) or np.isnan(p)):
-            p_str = "< 0.001" if p < 0.001 else f"{p:.4f}"
-            res_str = f"- {c1} vs {c2}: Spearman ρ = {rho:.3f}, p-value = {p_str} (N={n})"
-            print(res_str); report += res_str + "\n"
-            plot_scatter(df,c1,c2,rho,p, viz_dir / f"scatter_{c1}_vs_{c2}.png")
-            pair_data = {'Statistic':['Spearman ρ','p-value','N (pairs)'],'Value':[f"{rho:.3f}",p_str,n]}
-            pair_df = pd.DataFrame(pair_data).set_index('Statistic')
-            save_single_correlation_table_image(pair_df, f"Spearman: {c1} vs {c2}", f"table_corr_{c1}_vs_{c2}.png")
-        else: msg=f"Could not calc corr for {c1} vs {c2}."; print(msg); report += f"- {c1} vs {c2}: {msg}\n"
-    report += "\n"
+    report_content = "Spearman Correlation Analysis Results:\n\n"
+    report_content += "Pair-wise Correlations (Presented as 2x2 Matrices and Scatter Plots):\n"
 
-    ders_present = [c for c in ders_cols if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
-    if len(ders_present) > 1:
-        report += "Correlations among DERS Subscales:\n"
-        ders_csv = config.REPORTS_DIR/"correlation_matrix_ders_subscales.csv"
-        ders_heatmap = viz_dir/"heatmap_ders_subscales.png"
-        ders_matrix = generate_correlation_matrix_and_images(df,ders_present,ders_csv,ders_heatmap,"ders_subscales")
-        if ders_matrix is not None: report += "(See CSV and image files for DERS Subscales matrix)\n\n"
-        else: report += "DERS Subscale correlation matrix could not be generated.\n\n"
-    else: msg="Not enough DERS subscales for matrix."; print(msg); report+=f"{msg}\n\n"
+    for col1, col2 in correlation_pairs_config:
+        # Calculate rho and p-value for reporting and scatter plot title
+        rho, p_value, num_pairs = calculate_spearman_correlation_pair_values(df, col1, col2)
 
-    full_csv = config.REPORTS_DIR/"correlation_matrix_full.csv"
-    full_heatmap = viz_dir/"heatmap_full_matrix.png"
-    full_matrix = generate_correlation_matrix_and_images(df,matrix_cols,full_csv,full_heatmap,"full_totals_and_subscales")
-    if full_matrix is not None: report += "Full Correlation Matrix available (see CSV and image files).\n"
-    else: report += "Full correlation matrix could not be generated.\n"
+        if not (np.isnan(rho) or np.isnan(p_value)):
+            p_value_str = "< 0.001" if p_value < 0.001 else f"{p_value:.4f}"
+            result_str = f"- {col1} vs {col2}: Spearman ρ = {rho:.3f}, p-value = {p_value_str} (N={num_pairs})"
+            print(result_str)
+            report_content += result_str + "\n"
+
+            # Generate scatter plot
+            scatter_file = viz_dir / f"scatter_{col1}_vs_{col2}.png"
+            plot_scatter(df, col1, col2, rho, p_value, scatter_file)
+
+            # --- CREATE AND SAVE 2x2 CORRELATION MATRIX TABLE FOR THIS PAIR ---
+            # Ensure columns exist and are numeric for the sub-matrix calculation
+            cols_for_pair_matrix = []
+            if col1 in df.columns and pd.api.types.is_numeric_dtype(df[col1]):
+                cols_for_pair_matrix.append(col1)
+            if col2 in df.columns and pd.api.types.is_numeric_dtype(df[col2]):
+                cols_for_pair_matrix.append(col2)
+            
+            # Ensure no duplicate columns if col1 can be same as col2 (not in this config)
+            cols_for_pair_matrix = sorted(list(set(cols_for_pair_matrix)))
+
+
+            if len(cols_for_pair_matrix) == 2: # We need exactly two distinct columns
+                pair_corr_matrix = df[cols_for_pair_matrix].corr(method='spearman')
+                
+                # Sanitize col names for filename (simple replacement)
+                c1_fn = col1.replace(':', '_').replace(' ', '_').replace('(','').replace(')','')
+                c2_fn = col2.replace(':', '_').replace(' ', '_').replace('(','').replace(')','')
+
+                table_title = f"Spearman Correlation: {col1} & {col2}"
+                # Use a more descriptive suffix for the table image function
+                table_suffix = f"pair_{c1_fn}_vs_{c2_fn}"
+                # The save_correlation_matrix_table_image function is suitable here
+                save_correlation_matrix_table_image(pair_corr_matrix, filename_suffix=table_suffix)
+            else:
+                print(f"  Skipping 2x2 correlation table for '{col1}' vs '{col2}' due to missing or non-numeric columns.")
+            # --------------------------------------------------------------------
+        else:
+            msg = f"Could not calculate correlation values for {col1} vs {col2}."
+            print(msg)
+            report_content += f"- {col1} vs {col2}: {msg}\n"
+    report_content += "\n"
+
+    # DERS Subscales correlation matrix (uses generate_correlation_matrix_and_images)
+    ders_sub_cols_present = [col for col in ders_subscale_cols if col in df.columns and pd.api.types.is_numeric_dtype(df[col])]
+    if len(ders_sub_cols_present) > 1:
+        report_content += "Correlations among DERS Subscales:\n"
+        ders_matrix_csv_file = config.REPORTS_DIR / "correlation_matrix_ders_subscales.csv"
+        ders_heatmap_file = viz_dir / "heatmap_ders_subscales.png"
+        ders_corr_matrix = generate_correlation_matrix_and_images(
+            df, ders_sub_cols_present,
+            ders_matrix_csv_file, ders_heatmap_file,
+            suffix="ders_subscales" # Suffix for generate_correlation_matrix_and_images
+        )
+        if ders_corr_matrix is not None:
+            report_content += "(See CSV and image files for DERS Subscales matrix)\n\n"
+        else:
+            report_content += "DERS Subscale correlation matrix could not be generated.\n\n"
+    else:
+        msg = "Not enough numeric DERS subscale columns present for DERS subscale correlation matrix."
+        print(msg)
+        report_content += f"{msg}\n\n"
+
+    # Full correlation matrix (totals + DERS subscales)
+    full_matrix_csv_file = config.REPORTS_DIR / "correlation_matrix_full.csv"
+    full_heatmap_file = viz_dir / "heatmap_full_matrix.png"
+    full_corr_matrix = generate_correlation_matrix_and_images(
+        df, matrix_columns, # These are config.COLS_FOR_CORR_MATRIX
+        full_matrix_csv_file, full_heatmap_file,
+        suffix="full_totals_and_subscales"
+    )
+    if full_corr_matrix is not None:
+        report_content += "Full Correlation Matrix for Totals and DERS Subscales is available.\n(See CSV and image files)\n"
+    else:
+        report_content += "Full correlation matrix could not be generated.\n"
+
     try:
-        with open(report_path,"w",encoding="utf-8") as f: f.write(report)
-        print(f"Correlation report saved: {report_path}")
-    except Exception as e: print(f"Error saving correlation report: {e}")
+        with open(report_file, "w", encoding="utf-8") as f:
+            f.write(report_content)
+        print(f"Correlation analysis report saved to {report_file}")
+    except Exception as e:
+        print(f"Error saving correlation report: {e}")
