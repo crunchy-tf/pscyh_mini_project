@@ -1,12 +1,24 @@
+import sys
+import os
+
+# Add the project root directory (study_project) to the Python path
+# This ensures that 'src' can be found as a top-level package
+# when main.py is run directly.
+current_dir = os.path.dirname(os.path.abspath(__file__)) # directory of main.py (src)
+project_root = os.path.dirname(current_dir) # directory of src (study_project)
+sys.path.insert(0, project_root)
+
 from src import config
 from src.data_io import load_data, save_data_overwrite
 from src.data_cleaner import clean_data
 from src.descriptive_analyzer import perform_descriptive_analysis
 from src.correlation_analyzer import perform_correlation_analysis
 from src.regression_analyzer import perform_regression_analyses
-import sys
+# import sys # No need to import sys again here
 
 def main():
+    # ... rest of your main function
+    # ... (no changes needed to the rest of the main function)
     print("Starting data analysis pipeline...")
     print("="*50)
     print("CRITICAL WARNING:")
@@ -18,7 +30,7 @@ def main():
     confirmation = input("Type 'YES_OVERWRITE' to confirm and proceed with modifying the original file: ")
     if confirmation != "YES_OVERWRITE":
         print("Confirmation not received. Exiting script to prevent data modification.")
-        sys.exit()
+        sys.exit() # sys is already imported at the top
 
     print("\nConfirmation received. Proceeding with data operations...\n")
 

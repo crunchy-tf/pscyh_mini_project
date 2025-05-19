@@ -68,3 +68,6 @@ venv.bak/
 # Output files from this project
 outputs/
 # data/cleaned_dataset.csv # If you want to version control the overwritten original, comment this out
+
+#avoid committing the following files
+*.csv
