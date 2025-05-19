@@ -17,6 +17,7 @@ REPORTS_DIR = OUTPUT_DIR / "reports"
 # Create output directories if they don't exist (safe operation)
 (VISUALIZATIONS_DIR / "descriptive").mkdir(parents=True, exist_ok=True)
 (VISUALIZATIONS_DIR / "correlations").mkdir(parents=True, exist_ok=True)
+(VISUALIZATIONS_DIR / "regressions").mkdir(parents=True, exist_ok=True) # <--- ENSURE THIS IS PRESENT
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- Column Names (Match your CSV headers exactly for initial load) ---
@@ -32,12 +33,6 @@ CATEGORICAL_COLS_TO_IMPUTE_ORIGINAL = [COL_UNIVERSITY, COL_LEVEL, COL_AGE, COL_G
 # Scale Item Columns (Original Naming Pattern)
 RESILIENCE_ITEMS_ORIGINAL_PREFIX = "Résilience"
 ASIR_ITEMS_ORIGINAL_PREFIX = "ASIR"
-# The provided data snippet had DEERS1 for DERS items, then DERS2.
-# For consistency, you MUST verify what the actual prefix is for DERS items 1-36 in your CSV.
-# If items are DERS1, DERS2,...DERS36, use "DERS".
-# If items are DEERS1, DEERS2,...DEERS36, use "DEERS".
-# If it's mixed, the cleaning logic for column names will need to be more complex.
-# Assuming "DEERS" based on the first item shown in your sample data for the DERS scale.
 DERS_RAW_ITEMS_PREFIX = "DEERS" # USER MUST VERIFY THIS PREFIX FOR DERS ITEMS IN THEIR CSV
 
 # Target number of items for each scale
@@ -51,7 +46,6 @@ ASIR_PREFIX_CLEAN = "asir"
 DERS_PREFIX_CLEAN = "ders" # For DERS items, after cleaning names (e.g., ders1, ders2)
 
 # DERS subscale column mapping from original CSV header to cleaned name
-# Ensure these keys EXACTLY match the headers in your CSV file for these subscales.
 DERS_SUBSCALE_COL_MAPPING_ORIGINAL_TO_CLEAN = {
     "N:non acceptation": "ders_n_non_acceptance",
     "G:goals": "ders_g_goals",

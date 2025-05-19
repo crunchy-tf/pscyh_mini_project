@@ -3,13 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import skew, kurtosis
-from src import config # mode from scipy.stats can be problematic if multiple modes or non-numeric
+from src import config
+# Import the new table generator
+from src.table_generator import save_descriptive_stats_table_image # <--- ADD THIS IMPORT
 
 def calculate_descriptive_stats(series: pd.Series, series_name: str) -> pd.Series:
     """Calculates a comprehensive set of descriptive statistics for a series."""
     if not pd.api.types.is_numeric_dtype(series):
         print(f"Warning: Series '{series_name}' is not numeric (Dtype: {series.dtype}). Cannot calculate all descriptive stats.")
-        # Return what we can for non-numeric or partially numeric
         stats = {
             "Count": series.count(),
             "Missing": series.isnull().sum(),
@@ -18,12 +19,10 @@ def calculate_descriptive_stats(series: pd.Series, series_name: str) -> pd.Serie
         }
         return pd.Series(stats, name=series_name)
 
-    # For numeric series
     mode_val = series.mode()
     mode_display = mode_val.iloc[0] if not mode_val.empty else np.nan
     if len(mode_val) > 1:
         mode_display = f"{mode_val.iloc[0]} (and others)"
-
 
     stats = {
         "Mean": series.mean(),
@@ -36,7 +35,7 @@ def calculate_descriptive_stats(series: pd.Series, series_name: str) -> pd.Serie
         "Range": series.max() - series.min() if series.notna().any() else np.nan,
         "IQR": series.quantile(0.75) - series.quantile(0.25),
         "Skewness": skew(series.dropna()),
-        "Kurtosis (Fisher)": kurtosis(series.dropna(), fisher=True), # Fisher's (normal ==> 0.0)
+        "Kurtosis (Fisher)": kurtosis(series.dropna(), fisher=True),
         "Pctl_1st": series.quantile(0.01),
         "Pctl_25th (Q1)": series.quantile(0.25),
         "Pctl_50th (Median)": series.quantile(0.50),
@@ -48,7 +47,6 @@ def calculate_descriptive_stats(series: pd.Series, series_name: str) -> pd.Serie
     return pd.Series(stats, name=series_name)
 
 def plot_histogram(series: pd.Series, series_name: str, output_file: config.Path):
-    """Generates and saves a histogram for the series."""
     if not pd.api.types.is_numeric_dtype(series) or series.dropna().empty:
         print(f"Skipping histogram for non-numeric or empty series: {series_name}")
         return
@@ -65,9 +63,7 @@ def plot_histogram(series: pd.Series, series_name: str, output_file: config.Path
         print(f"Error saving histogram {output_file}: {e}")
     plt.close()
 
-
 def plot_boxplot(series: pd.Series, series_name: str, output_file: config.Path):
-    """Generates and saves a boxplot for the series."""
     if not pd.api.types.is_numeric_dtype(series) or series.dropna().empty:
         print(f"Skipping boxplot for non-numeric or empty series: {series_name}")
         return
@@ -83,9 +79,7 @@ def plot_boxplot(series: pd.Series, series_name: str, output_file: config.Path):
         print(f"Error saving boxplot {output_file}: {e}")
     plt.close()
 
-
 def perform_descriptive_analysis(df: pd.DataFrame, columns_to_analyze: list, report_file: config.Path, viz_dir: config.Path):
-    """Performs descriptive analysis for specified columns and saves results."""
     print("\n--- Performing Descriptive Analysis ---")
     all_stats_list = []
 
@@ -95,7 +89,6 @@ def perform_descriptive_analysis(df: pd.DataFrame, columns_to_analyze: list, rep
             stats_series = calculate_descriptive_stats(series, col_name)
             all_stats_list.append(stats_series)
 
-            # Visualizations
             hist_file = viz_dir / f"histogram_{col_name}.png"
             plot_histogram(series, col_name, hist_file)
 
@@ -109,14 +102,17 @@ def perform_descriptive_analysis(df: pd.DataFrame, columns_to_analyze: list, rep
         print("\nDescriptive Statistics Summary:")
         print(all_stats_df)
         try:
-            # Save as CSV for easier machine readability
             all_stats_df.to_csv(report_file.with_suffix(".csv"))
-            # Save as TXT for human readability
             with open(report_file, "w", encoding="utf-8") as f:
                 f.write("Descriptive Statistics Summary:\n\n")
                 f.write(all_stats_df.to_string())
             print(f"Descriptive statistics report saved to {report_file} and {report_file.with_suffix('.csv')}")
+
+            # --- ADD CALL TO SAVE TABLE AS IMAGE ---
+            save_descriptive_stats_table_image(all_stats_df)
+            # ---------------------------------------
+
         except Exception as e:
-            print(f"Error saving descriptive stats report: {e}")
+            print(f"Error saving descriptive stats report or table image: {e}")
     else:
         print("No descriptive statistics were generated.")
