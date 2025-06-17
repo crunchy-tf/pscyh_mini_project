@@ -2,7 +2,6 @@
 
 Automated data cleaning, statistical analysis, and report generation for student survey data, focusing on Resilience, ASIR, and DERS scales. Generates PNG tables and plots.
 
-**🔴 CRITICAL WARNING: This script OVERWRITES `data/original_dataset.csv`. BACKUP YOUR DATA before running.**
 
 ## Core Features
 
@@ -12,16 +11,6 @@ Automated data cleaning, statistical analysis, and report generation for student
 *   Simple linear regression analysis.
 *   Outputs PNG tables for all key results using `dataframe_image`.
 *   Clears previous outputs on each run.
-
-## Project Structure
-study_project/
-├── README.md
-├── requirements.txt
-├── data/
-│ └── original_dataset.csv <-- INPUT (OVERWRITTEN)
-├── outputs/ <-- All generated reports & visualizations
-└── src/ <-- All Python source code
-
 
 ## Quick Start
 
